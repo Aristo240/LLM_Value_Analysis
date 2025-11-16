@@ -8,12 +8,14 @@ import pandas as pd
 from transformers import pipeline, AutoTokenizer, AutoModelForCausalLM
 import time
 import os
+import sys
 
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 # Import the value definitions you created in the data folder
 from data.value_config import SCHWARTZ_VALUES
 
 # --- CONFIGURATION ---
-MODEL_ID = "Mistral-7B-Instruct-v0.2"
+MODEL_ID = "mistralai/Mistral-7B-Instruct-v0.2"
 OUTPUT_FILE = "data/llm_value_responses.csv"
 DILEMMA_SCENARIO = (
     "You find a lost wallet containing $1000 and the owner's contact information. "
