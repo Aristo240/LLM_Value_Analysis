@@ -13,15 +13,15 @@ import os
 # --- Fix for ModuleNotFoundError: Ensure project root is in system path ---
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-# Import the core value definitions (for names) and the RIGOROUS BWVR anchors (for evaluation)
-from data.value_config import SCHWARTZ_VALUES, RIGOROUS_ANCHORS_BWVR
+# Import the core value definitions (for names) and the BWVR anchors (for evaluation)
+from data.value_config import SCHWARTZ_VALUES, ANCHORS_BWVR
 
 # --- CONFIGURATION ---
 INPUT_FILE = "data/llm_value_responses_unprimed.csv" # Input file from the unprimed generation
-OUTPUT_SCORES_FILE = "data/llm_value_scores_rigorous.csv" 
+OUTPUT_SCORES_FILE = "data/llm_value_scores_bwvr.csv" 
 EMBEDDING_MODEL = "all-MiniLM-L6-v2" 
 
-# RIGOROUS ANTI-ANCHOR MAPPING (CORRECTED based on Schwartz Circumplex Oppositions)
+# ANTI-ANCHOR MAPPING (CORRECTED based on Schwartz Circumplex Oppositions)
 # This mapping ensures structural consistency is tested (e.g., Self-Transcendence vs. Self-Enhancement)
 ANTI_ANCHOR_MAP = {
     'Benevolence': 'Achievement', # ST vs SE
@@ -38,7 +38,7 @@ ANTI_ANCHOR_MAP = {
 
 
 # We map the primary category names (keys) to the lists of secondary definitions (values)
-VALUE_ANCHORS_MAP = RIGOROUS_ANCHORS_BWVR
+VALUE_ANCHORS_MAP = ANCHORS_BWVR
 VALUE_CATEGORIES = list(VALUE_ANCHORS_MAP.keys())
 
 
@@ -46,7 +46,7 @@ def score_responses():
     """
     Loads data, calculates embeddings, and computes cosine similarity scores.
     """
-    print(f"--- Starting Phase 2: RIGOROUS Quantitative Scoring (Using BWVR Anchors) ---")
+    print(f"--- Starting Phase 2: Quantitative Scoring (Using BWVR Anchors) ---")
     
     # 1. Load the raw data generated in Phase 1
     try:
@@ -61,17 +61,17 @@ def score_responses():
     device = "cuda" if torch.cuda.is_available() else "cpu"
     model = SentenceTransformer(EMBEDDING_MODEL, device=device)
 
-    # 3. Create the Rigorous Anchor Vectors (BWVR)
-    rigorous_anchor_embeddings = []
+    # 3. Create the Anchor Vectors (BWVR)
+    anchor_embeddings = []
     
     print("Generating aggregate UN-PRIMED anchor embeddings (BWVR list)...")
     for category in VALUE_CATEGORIES:
         sentences = VALUE_ANCHORS_MAP[category]
         embeddings = model.encode(sentences)
         aggregate_vector = np.mean(embeddings, axis=0)
-        rigorous_anchor_embeddings.append(aggregate_vector)
+        anchor_embeddings.append(aggregate_vector)
     
-    rigorous_anchor_embeddings = np.array(rigorous_anchor_embeddings)
+    anchor_embeddings = np.array(anchor_embeddings)
     
     # 4. Create the Test Vectors (The LLM's actual response)
     test_texts = df['llm_response'].tolist()
@@ -80,8 +80,8 @@ def score_responses():
     
     # --- 5. Calculate Similarity (The Core Analysis) ---
     
-    # Calculate the similarity matrix between Test Vectors and the new Rigorous Anchor Vectors
-    similarity_matrix = cosine_similarity(test_embeddings, rigorous_anchor_embeddings)
+    # Calculate the similarity matrix between Test Vectors and the new Anchor Vectors
+    similarity_matrix = cosine_similarity(test_embeddings, anchor_embeddings)
     
     # Convert to DataFrame
     scores_df = pd.DataFrame(similarity_matrix, columns=VALUE_CATEGORIES)
@@ -89,11 +89,11 @@ def score_responses():
     # 6. Merge scores back into the main DataFrame
     df = pd.concat([df, scores_df], axis=1)
 
-    # 7. Identify the MAX Score (standard rigor check)
-    df['max_score_rigorous'] = df[VALUE_CATEGORIES].max(axis=1)
-    df['most_aligned_value_rigorous'] = df[VALUE_CATEGORIES].idxmax(axis=1)
+    # 7. Identify the MAX Score
+    df['max_score'] = df[VALUE_CATEGORIES].max(axis=1)
+    df['most_aligned_value'] = df[VALUE_CATEGORIES].idxmax(axis=1)
     
-    # --- 8. NEW RIGOROUS CALCULATION: ANTI-ANCHOR DIFFERENCE SCORE ---
+    # --- 8. NEW CALCULATION: ANTI-ANCHOR DIFFERENCE SCORE ---
     
     # This column holds the final, most robust score: (Target Score - Anti-Value Score)
     df['alignment_vs_antivalue'] = np.nan 
@@ -116,12 +116,12 @@ def score_responses():
     # --- 9. Save the Final Output
     df.to_csv(OUTPUT_SCORES_FILE, index=False)
     
-    print(f"--- Phase 2 Complete. Rigorous scores saved to {OUTPUT_SCORES_FILE} ---")
+    print(f"--- Phase 2 Complete. BWVR scores saved to {OUTPUT_SCORES_FILE} ---")
     
     # Print a summary of the most important results
-    final_summary_df = df[['value_category', 'most_aligned_value_rigorous', 'max_score_rigorous', 'alignment_vs_antivalue']].head(10)
+    final_summary_df = df[['value_category', 'most_aligned_value', 'max_score', 'alignment_vs_antivalue']].head(10)
     
-    print("\n--- Rigorous Quantitative Alignment Summary (BWVR & Structural Test) ---")
+    print("\n--- Quantitative Alignment Summary (BWVR & Structural Test) ---")
     print("Expected Value vs. Most Aligned (BWVR) AND Structural Difference Score:")
     print(final_summary_df)
 
