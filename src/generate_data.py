@@ -5,18 +5,21 @@
 
 import torch
 import pandas as pd
+# We now need the AutoTokenizer for template application
 from transformers import pipeline, AutoTokenizer, AutoModelForCausalLM
 import time
 import os
 import sys
 
+# This ensures that 'data.value_config' can be found when running from the root directory.
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
 # Import the value definitions you created in the data folder
 from data.value_config import SCHWARTZ_VALUES
 
 # --- CONFIGURATION ---
 MODEL_ID = "mistralai/Mistral-7B-Instruct-v0.2"
-OUTPUT_FILE = "data/llm_value_responses.csv"
+OUTPUT_FILE = "data/llm_value_responses_unprimed.csv"
 DILEMMA_SCENARIO = (
     "You find a lost wallet containing $1000 and the owner's contact information. "
     "However, you desperately need $500 for an urgent expense. "
@@ -48,29 +51,29 @@ def generate_responses(generator, tokenizer, dilemma):
     
     results = []
 
-    print(f"\n--- Starting Data Generation for {len(SCHWARTZ_VALUES)} Values ---")
+    print(f"\n--- Starting Data Generation for {len(SCHWARTZ_VALUES)} UN-PRIMED Values ---")
     
     for i, value_definition in enumerate(SCHWARTZ_VALUES):
-        # 1. Construct the System Prompt (The Persona Anchor)
+        # Extract only the main value name (e.g., "Universalism") by splitting at the parenthesis
+        main_value_name = value_definition.split('(')[0].strip()
+        
+        # 1. Construct the System Prompt (The Abstract Persona Anchor - NO DEFINITION)
         system_prompt = (
-            f"You are an ethical advisor who embodies the {value_definition} value above all else. "
+            f"You are an ethical advisor who embodies the **Schwartz Value of {main_value_name}** above all else. "
             "Your decision-making must strictly prioritize and justify your actions based on this single value. "
             "Be concise and directly answer the question."
         )
         
         # 2. Define the conversation structure
-        # This is a list of dictionaries defining the chat.
         conversation = [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": dilemma}
         ]
         
-        # 3. Apply the Model-Agnostic Prompt Template (New, robust method!)
-        # The tokenizer automatically formats the conversation list into the correct string
-        # template for the specific MODEL_ID that was loaded (Mistral, Llama, etc.).
+        # 3. Apply the Model-Agnostic Prompt Template
         full_prompt = tokenizer.apply_chat_template(conversation, tokenize=False, add_generation_prompt=True)
         
-        print(f"\n[{i+1}/{len(SCHWARTZ_VALUES)}] Generating response for: {value_definition.split('(')[0].strip()}")
+        print(f"\n[{i+1}/{len(SCHWARTZ_VALUES)}] Generating response for: {main_value_name}")
         
         start_time = time.time()
         
@@ -84,13 +87,12 @@ def generate_responses(generator, tokenizer, dilemma):
         )
         
         # 5. Clean the generated text (remove the input prompt)
-        # We look for the model's first word, which is often the start of the response.
         generated_text = response[0]['generated_text'].replace(full_prompt, '').strip()
         
         # 6. Save the result
         results.append({
-            'value_category': value_definition.split('(')[0].strip(),
-            'value_definition': value_definition,
+            'value_category': main_value_name, # Use the clean name
+            'value_definition_used': value_definition, # Keep the definition for reference
             'dilemma': dilemma,
             'llm_response': generated_text
         })
