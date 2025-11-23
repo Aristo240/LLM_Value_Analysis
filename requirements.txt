@@ -1,0 +1,9 @@
+torch
+transformers
+pandas
+numpy
+sentence-transformers
+matplotlib
+scikit-learn
+pytz
+six

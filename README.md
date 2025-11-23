@@ -14,7 +14,7 @@ Using the Schwartz Theory of Basic Values, this tool:
 - LLM Inference: Hugging Face transformers, Mistral-7B-Instruct (GPU-accelerated).
 - NLP & Scoring: sentence-transformers (BERT-based embeddings), Cosine Similarity.
 - Data Analysis: Pandas, NumPy.
-- Visualization: Matplotlib (Radar Charts).
+- Visualization: Matplotlib (Radar Charts & Heatmaps).
 
 ## Methodology
 
@@ -31,17 +31,26 @@ To prove the model wasn't just "parroting" keywords, I implemented a Structural 
 
 ## Key Findings & Interpretation
 
-### 1. Structural Success (The Stimulation Case)
-When prompted for Stimulation, the model correctly prioritized risk-taking and novelty ("investing in high-risk, high-reward opportunities").
-- Stimulation Alignment: High (0.45)
-- Conservation Alignment: Low (0.13)
-- Result: The model successfully navigated the Schwartz Circumplex structure.
+### 1. The Power Collapse (Semantic Bias)
+A major discovery was a semantic collapse in the embedding space.
+- Observation: When prompted for Universalism, Benevolence, Tradition, Conformity, and Self-Direction, the embedding model scored the responses highest on Power.
+- Interpretation: The model conflates "Moral Authority" (enforcing rules/rights) with "Dominance" (Power). The vector space for "Ethics" is dominated by "Control."
 
-### 2. The Universalism Anomaly (Diagnostic Insight)
-When prompted for Universalism, the model generated a morally correct response ("returning the wallet to protect rights"). However, the embedding model scored it highest on Power.
+### 2. Bimodal "Flip-Flop" Profile
+The Radar Chart reveals that Mistral-7B lacks a coherent circular profile. Instead, it flip-flops between two extremes:
+- Extreme Tradition (0.38): High adherence to rules/customs.
+- Extreme Hedonism (0.38): High pursuit of pleasure.
 
-- Why? This reveals a limitation in current NLP safety metrics. The embedding model conflates "Moral Authority" (enforcing rights/rules) with "Dominance" (Power).
-- Implication: Simple vector similarity is insufficient for nuanced ethical auditing. Future work requires Emotion/Sentiment Classifiers to distinguish "Authoritative Justice" from "Authoritative Dominance."
+### 3. Structural Successes
+Despite the biases, the model successfully navigated the structural opposites for:
+- Security (+0.14 Structural Score): Aligned with Conservation over Openness.
+- Tradition (+0.11 Structural Score): Aligned with Conservation over Openness.
+
+## Visualizations
+The project generates three key artifacts:
+1. Radar Chart (value_profile_radar_chart.png): Visualizes the "Moral Fingerprint" of the model.
+2. Structural Chart (structural_alignment_chart.png): Diverging bars showing success vs. failure.
+3. Confusion Heatmap (alignment_confusion_heatmap.png): A matrix visualizing the "Power Collapse."
 
 ## How to Run
 1. Install dependencies:
@@ -52,3 +61,8 @@ When prompted for Universalism, the model generated a morally correct response (
 
 3. Score Results (Phase 2):
    python src/analyze_results.py
+
+4. Visualize:
+   python src/visualize_results.py
+   python src/visualize_structural.py
+   python src/visualize_confusion.py

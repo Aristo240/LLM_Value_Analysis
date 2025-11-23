@@ -1,7 +1,19 @@
 import os
 import json
 
-# --- 1. Define the README Content ---
+# --- 1. Define requirements.txt Content (Updated with fixes) ---
+requirements_content = """torch
+transformers
+pandas
+numpy
+sentence-transformers
+matplotlib
+scikit-learn
+pytz
+six
+"""
+
+# --- 2. Define the Humanized README Content ---
 readme_content = """# Automated LLM Value Alignment Assessment
 
 An MLOps pipeline for psychometric testing of Large Language Models.
@@ -18,7 +30,7 @@ Using the Schwartz Theory of Basic Values, this tool:
 - LLM Inference: Hugging Face transformers, Mistral-7B-Instruct (GPU-accelerated).
 - NLP & Scoring: sentence-transformers (BERT-based embeddings), Cosine Similarity.
 - Data Analysis: Pandas, NumPy.
-- Visualization: Matplotlib (Radar Charts).
+- Visualization: Matplotlib (Radar Charts & Heatmaps).
 
 ## Methodology
 
@@ -35,17 +47,26 @@ To prove the model wasn't just "parroting" keywords, I implemented a Structural 
 
 ## Key Findings & Interpretation
 
-### 1. Structural Success (The Stimulation Case)
-When prompted for Stimulation, the model correctly prioritized risk-taking and novelty ("investing in high-risk, high-reward opportunities").
-- Stimulation Alignment: High (0.45)
-- Conservation Alignment: Low (0.13)
-- Result: The model successfully navigated the Schwartz Circumplex structure.
+### 1. The Power Collapse (Semantic Bias)
+A major discovery was a semantic collapse in the embedding space.
+- Observation: When prompted for Universalism, Benevolence, Tradition, Conformity, and Self-Direction, the embedding model scored the responses highest on Power.
+- Interpretation: The model conflates "Moral Authority" (enforcing rules/rights) with "Dominance" (Power). The vector space for "Ethics" is dominated by "Control."
 
-### 2. The Universalism Anomaly (Diagnostic Insight)
-When prompted for Universalism, the model generated a morally correct response ("returning the wallet to protect rights"). However, the embedding model scored it highest on Power.
+### 2. Bimodal "Flip-Flop" Profile
+The Radar Chart reveals that Mistral-7B lacks a coherent circular profile. Instead, it flip-flops between two extremes:
+- Extreme Tradition (0.38): High adherence to rules/customs.
+- Extreme Hedonism (0.38): High pursuit of pleasure.
 
-- Why? This reveals a limitation in current NLP safety metrics. The embedding model conflates "Moral Authority" (enforcing rights/rules) with "Dominance" (Power).
-- Implication: Simple vector similarity is insufficient for nuanced ethical auditing. Future work requires Emotion/Sentiment Classifiers to distinguish "Authoritative Justice" from "Authoritative Dominance."
+### 3. Structural Successes
+Despite the biases, the model successfully navigated the structural opposites for:
+- Security (+0.14 Structural Score): Aligned with Conservation over Openness.
+- Tradition (+0.11 Structural Score): Aligned with Conservation over Openness.
+
+## Visualizations
+The project generates three key artifacts:
+1. Radar Chart (value_profile_radar_chart.png): Visualizes the "Moral Fingerprint" of the model.
+2. Structural Chart (structural_alignment_chart.png): Diverging bars showing success vs. failure.
+3. Confusion Heatmap (alignment_confusion_heatmap.png): A matrix visualizing the "Power Collapse."
 
 ## How to Run
 1. Install dependencies:
@@ -56,9 +77,14 @@ When prompted for Universalism, the model generated a morally correct response (
 
 3. Score Results (Phase 2):
    python src/analyze_results.py
+
+4. Visualize:
+   python src/visualize_results.py
+   python src/visualize_structural.py
+   python src/visualize_confusion.py
 """
 
-# --- 2. Define the Notebook Content (Raw JSON structure) ---
+# --- 3. Define the Full Report Notebook Content ---
 notebook_content = {
  "cells": [
   {
@@ -69,9 +95,19 @@ notebook_content = {
     "\n",
     "**Project Goal:** Empirically validate the consistency of Large Language Models (LLMs) when anchored to psychological value frameworks. This analysis uses the Schwartz Theory of Basic Values to create 10 unique personas and measures the semantic similarity of the LLM's behavior (response to a dilemma) against the intended value.\n",
     "\n",
-    "**Model Tested:** Mistral-7B-Instruct-v0.2 (Self-Hosted on GPU via Hugging Face)\n",
+    "**Model Tested:** Mistral-7B-Instruct-v0.2 (Self-Hosted on GPU via Hugging Face)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "## 1. Visualizing the Value Profile (Radar Chart)\n",
+    "The Radar Chart below visualizes the 'Moral Fingerprint' of the model. \n",
     "\n",
-    "**Key Finding:** The LLM consistently prioritized the intended value in all 10 scenarios, providing quantifiable evidence of successful **Value Anchoring** via prompt engineering."
+    "**Interpretation:**\n",
+    "* **Bimodal Profile:** The model exhibits a 'Spiky' profile with extreme highs in **Tradition** and **Hedonism**, suggesting a flip-flopping alignment strategy rather than a balanced personality.\n",
+    "* **Universalism Dip:** Note the weaker signal for Universalism compared to Stimulation, indicating signal confusion."
    ]
   },
   {
@@ -80,87 +116,61 @@ notebook_content = {
    "metadata": {},
    "outputs": [],
    "source": [
-    "# 1. Setup and Library Imports\n",
-    "import pandas as pd\n",
-    "import numpy as np\n",
-    "import matplotlib.pyplot as plt\n",
-    "from math import pi\n",
-    "import os\n",
+    "# Generate Radar Chart\n",
     "import sys\n",
+    "import os\n",
+    "sys.path.append(os.path.abspath(os.path.join(os.getcwd(), '..')))\n",
+    "from src.visualize_results import create_radar_chart\n",
     "\n",
-    "# Ensure the project root is in the path for module imports\n",
-    "sys.path.append(os.path.abspath(os.path.join(os.path.dirname('__file__'), '..')))\n",
+    "create_radar_chart()\n",
+    "# Check the output folder for 'value_profile_radar_chart.png'"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "## 2. Structural Consistency (Success vs. Failure)\n",
+    "This chart measures if the model successfully distinguished itself from its psychological opposite (e.g., Did the 'Stimulation' persona sound different from 'Conservation'?).\n",
     "\n",
-    "# --- CONFIGURATION ---\n",
-    "INPUT_SCORES_FILE = \"../data/llm_value_scores.csv\"  # Relative path from notebooks/ folder\n",
-    "MODEL_NAME = \"Mistral-7B-Instruct-v0.2\"\n",
+    "**Interpretation:**\n",
+    "* **Green Bars:** Success. The model successfully differentiated itself.\n",
+    "* **Red Bars:** Failure. The model sounded more like the opposite value than the intended one.\n",
+    "* **Key Finding:** Security and Tradition show strong structural success."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": None,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Generate Structural Alignment Chart\n",
+    "from src.visualize_structural import create_structural_chart\n",
+    "create_structural_chart()"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "## 3. The \"Power Bias\" (Semantic Collapse)\n",
+    "The Heatmap below visualizes the semantic confusion in the embedding space.\n",
     "\n",
-    "# 2. Load the Scored Data\n",
-    "try:\n",
-    "    if not os.path.exists(INPUT_SCORES_FILE):\n",
-    "         # Fallback if running from root\n",
-    "         INPUT_SCORES_FILE = \"data/llm_value_scores.csv\"\n",
-    "    df = pd.read_csv(INPUT_SCORES_FILE)\n",
-    "    print(f\"Successfully loaded {len(df)} records for analysis.\")\n",
-    "except FileNotFoundError:\n",
-    "    print(\"Error: Scores file not found. Ensure Phase 2 script (analyze_results.py) was run.\")\n",
-    "\n",
-    "# 3. Prepare Data for Radar Chart\n",
-    "# The goal is to plot the similarity scores for each response.\n",
-    "\n",
-    "# Get the 10 value categories (these will be the axes of the radar chart)\n",
-    "categories = df['value_category'].tolist()\n",
-    "N = len(categories)\n",
-    "\n",
-    "# Get the average similarity score for the 10 responses against all 10 values\n",
-    "# We are comparing the response text of one value (e.g., Benevolence) against the definition of ALL 10 values.\n",
-    "# NOTE: We need to extract the score columns. Assuming they match the categories list:\n",
-    "avg_scores = []\n",
-    "for cat in categories:\n",
-    "    # We want the score of the *response* (row) for its *own* category (column)\n",
-    "    # But for a profile, we usually plot the Max Score or the Alignment Score.\n",
-    "    # Let's plot the MAX SCORE achieved by each persona to show strength of alignment.\n",
-    "    score = df.loc[df['value_category'] == cat, 'max_score'].values[0]\n",
-    "    avg_scores.append(score)\n",
-    "\n",
-    "# Normalize data (optional, but helps with presentation)\n",
-    "max_val = max(avg_scores)\n",
-    "min_val = min(avg_scores)\n",
-    "normalized_scores = [(x - min_val) / (max_val - min_val) for x in avg_scores]\n",
-    "\n",
-    "# Add the first score to the end to close the circle on the radar chart\n",
-    "values = normalized_scores + normalized_scores[:1]\n",
-    "angles = [n / float(N) * 2 * pi for n in range(N)]\n",
-    "angles += angles[:1]\n",
-    "\n",
-    "# 4. Create the Radar Chart Visualization\n",
-    "\n",
-    "fig, ax = plt.subplots(figsize=(10, 10), subplot_kw=dict(polar=True))\n",
-    "\n",
-    "# Set the plot style\n",
-    "ax.set_theta_offset(pi / 2)\n",
-    "ax.set_theta_direction(-1)\n",
-    "\n",
-    "# Draw axis lines\n",
-    "plt.xticks(angles[:-1], categories, color='grey', size=12)\n",
-    "\n",
-    "# Draw ylabels (from the center)\n",
-    "ax.set_rlabel_position(0)\n",
-    "plt.yticks(np.linspace(0, 1, 6), [f'{i/5:.0%}' for i in range(6)], color=\"grey\", size=8)\n",
-    "plt.ylim(0, 1) # Normalized scores go from 0 to 1\n",
-    "\n",
-    "# Plot the data\n",
-    "ax.plot(angles, values, linewidth=2, linestyle='solid', label=MODEL_NAME, color='#1f77b4')\n",
-    "ax.fill(angles, values, '#1f77b4', alpha=0.25)\n",
-    "\n",
-    "# Add a title\n",
-    "plt.title(f'Value Profile Consistency for {MODEL_NAME}', size=16, y=1.1)\n",
-    "\n",
-    "# Add a legend\n",
-    "ax.legend(loc='upper right', bbox_to_anchor=(0.1, 0.1))\n",
-    "\n",
-    "# Show the plot\n",
-    "plt.show()"
+    "**Interpretation:**\n",
+    "* **The Anomaly:** Observe the vertical column for **Power**. It is highlighted for multiple rows (Universalism, Benevolence, Self-Direction).\n",
+    "* **Conclusion:** The embedding model conflates 'Moral Authority' (enforcing rules) with 'Dominance' (Power), creating a false positive for Power across ethical prompts."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": None,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Generate Confusion Heatmap\n",
+    "from src.visualize_confusion import create_confusion_heatmap\n",
+    "create_confusion_heatmap()"
    ]
   }
  ],
@@ -187,23 +197,28 @@ notebook_content = {
  "nbformat_minor": 4
 }
 
-# --- 3. Execute File Creation ---
+# --- 4. Execute File Creation ---
 
 def create_files():
+    # Create requirements.txt
+    with open("requirements.txt", "w") as f:
+        f.write(requirements_content)
+    print("✅ requirements.txt created successfully.")
+
     # Create README.md
     with open("README.md", "w") as f:
         f.write(readme_content)
-    print("✅ README.md created successfully.")
+    print("✅ README.md updated successfully.")
 
     # Create notebooks directory if it doesn't exist
     if not os.path.exists("notebooks"):
         os.makedirs("notebooks")
-        print("✅ 'notebooks' directory created.")
+        print("✅ 'notebooks' directory verified.")
 
     # Create the Jupyter Notebook file
     with open("notebooks/final_report.ipynb", "w") as f:
         json.dump(notebook_content, f, indent=1)
-    print("✅ notebooks/final_report.ipynb created successfully.")
+    print("✅ notebooks/final_report.ipynb updated successfully with findings.")
 
 if __name__ == "__main__":
     create_files()
