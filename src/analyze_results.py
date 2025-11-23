@@ -21,7 +21,7 @@ INPUT_FILE = "data/llm_value_responses_unprimed.csv"
 OUTPUT_SCORES_FILE = "data/llm_value_scores.csv" 
 EMBEDDING_MODEL = "all-MiniLM-L6-v2" 
 
-# --- DEFINING HIGH-ORDER CLUSTERS (Clean Structural Groups) ---
+# --- DEFINING HIGH-ORDER CLUSTERS  ---
 # Hedonism is OMITTED from clusters as it is a border value.
 CLUSTERS = {
     'Self-Transcendence': ['Universalism', 'Benevolence'],
