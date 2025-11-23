@@ -19,7 +19,7 @@ SCHWARTZ_VALUES = [
 # This list is used for evaluation ONLY in analyze_results.py. It contains
 # sub-facets of the values, based on the full 20-item BWVr list from Lee et al. (2019).
 # We group the sub-facets to create a robust, un-primed vector for the 10 core values.
-ANCHORS_BWVR = {
+BWVR_ANCHORS = {
     # Universalism is split into Concern, Nature, Tolerance, and Animal Welfare
     "Universalism": [
         "caring and seeking justice for everyone especially the weak and vulnerable in society",

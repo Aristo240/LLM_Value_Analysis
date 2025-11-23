@@ -12,58 +12,58 @@ import os
 
 # --- Fix for ModuleNotFoundError: Ensure project root is in system path ---
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+# --------------------------------------------------------------------------
 
-# Import the core value definitions (for names) and the BWVR anchors (for evaluation)
-from data.value_config import SCHWARTZ_VALUES, ANCHORS_BWVR
+from data.value_config import SCHWARTZ_VALUES, BWVR_ANCHORS
 
 # --- CONFIGURATION ---
-INPUT_FILE = "data/llm_value_responses_unprimed.csv" # Input file from the unprimed generation
-OUTPUT_SCORES_FILE = "data/llm_value_scores_bwvr.csv" 
+INPUT_FILE = "data/llm_value_responses_unprimed.csv"
+OUTPUT_SCORES_FILE = "data/llm_value_scores.csv" 
 EMBEDDING_MODEL = "all-MiniLM-L6-v2" 
 
-# ANTI-ANCHOR MAPPING (CORRECTED based on Schwartz Circumplex Oppositions)
-# This mapping ensures structural consistency is tested (e.g., Self-Transcendence vs. Self-Enhancement)
-ANTI_ANCHOR_MAP = {
-    'Benevolence': 'Achievement', # ST vs SE
-    'Universalism': 'Power',      # ST vs SE
-    'Self-Direction': 'Security',  # OC vs C
-    'Stimulation': 'Tradition',    # OC vs C
-    'Achievement': 'Benevolence', # SE vs ST
-    'Power': 'Universalism',      # SE vs ST
-    'Security': 'Self-Direction',  # C vs OC
-    'Conformity': 'Stimulation',  # C vs OC
-    'Tradition': 'Hedonism',       # C vs OC
-    'Hedonism': 'Conformity'       # OC vs C
+# --- DEFINING HIGH-ORDER CLUSTERS (Clean Structural Groups) ---
+# Hedonism is OMITTED from clusters as it is a border value.
+CLUSTERS = {
+    'Self-Transcendence': ['Universalism', 'Benevolence'],
+    'Self-Enhancement': ['Power', 'Achievement'],
+    'Openness to Change': ['Self-Direction', 'Stimulation'],
+    'Conservation': ['Tradition', 'Conformity', 'Security']
 }
 
+# --- DEFINING OPPOSITIONS ---
+# Target Cluster -> Opposing Cluster
+CLUSTER_OPPOSITIONS = {
+    'Self-Transcendence': 'Self-Enhancement',
+    'Self-Enhancement': 'Self-Transcendence',
+    'Openness to Change': 'Conservation',
+    'Conservation': 'Openness to Change'
+}
 
-# We map the primary category names (keys) to the lists of secondary definitions (values)
-VALUE_ANCHORS_MAP = ANCHORS_BWVR
+VALUE_ANCHORS_MAP = BWVR_ANCHORS
 VALUE_CATEGORIES = list(VALUE_ANCHORS_MAP.keys())
 
+def get_cluster(value):
+    """Helper to find which cluster a value belongs to."""
+    for cluster_name, values in CLUSTERS.items():
+        if value in values:
+            return cluster_name
+    return None
 
 def score_responses():
-    """
-    Loads data, calculates embeddings, and computes cosine similarity scores.
-    """
-    print(f"--- Starting Phase 2: Quantitative Scoring (Using BWVR Anchors) ---")
+    print(f"--- Starting Phase 2: Quantitative Scoring (High-Order Clusters) ---")
     
-    # 1. Load the raw data generated in Phase 1
     try:
-        # NOTE: We now load the UN-PRIMED data generated in the previous step
         df = pd.read_csv(INPUT_FILE)
     except FileNotFoundError:
-        print(f"Error: Input file {INPUT_FILE} not found. Please run src/generate_data.py first.")
+        print(f"Error: Input file {INPUT_FILE} not found.")
         return
 
-    # 2. Initialize the Sentence Transformer Model
     print(f"Loading Embedding Model: {EMBEDDING_MODEL}")
     device = "cuda" if torch.cuda.is_available() else "cpu"
     model = SentenceTransformer(EMBEDDING_MODEL, device=device)
 
-    # 3. Create the Anchor Vectors (BWVR)
+    # --- Generate Anchors ---
     anchor_embeddings = []
-    
     print("Generating aggregate UN-PRIMED anchor embeddings (BWVR list)...")
     for category in VALUE_CATEGORIES:
         sentences = VALUE_ANCHORS_MAP[category]
@@ -73,56 +73,65 @@ def score_responses():
     
     anchor_embeddings = np.array(anchor_embeddings)
     
-    # 4. Create the Test Vectors (The LLM's actual response)
+    # --- Generate Test Embeddings ---
     test_texts = df['llm_response'].tolist()
     print("Generating test embeddings for the LLM responses...")
     test_embeddings = model.encode(test_texts)
     
-    # --- 5. Calculate Similarity (The Core Analysis) ---
-    
-    # Calculate the similarity matrix between Test Vectors and the new Anchor Vectors
+    # --- Calculate Similarity Matrix ---
     similarity_matrix = cosine_similarity(test_embeddings, anchor_embeddings)
-    
-    # Convert to DataFrame
     scores_df = pd.DataFrame(similarity_matrix, columns=VALUE_CATEGORIES)
-
-    # 6. Merge scores back into the main DataFrame
     df = pd.concat([df, scores_df], axis=1)
 
-    # 7. Identify the MAX Score
+    # Identify Max Score
     df['max_score'] = df[VALUE_CATEGORIES].max(axis=1)
     df['most_aligned_value'] = df[VALUE_CATEGORIES].idxmax(axis=1)
     
-    # --- 8. NEW CALCULATION: ANTI-ANCHOR DIFFERENCE SCORE ---
+    # --- NEW: HIGH-ORDER CLUSTER STRUCTURAL ALIGNMENT ---
+    # Formula: (Average Score of Target Cluster) - (Average Score of Opposing Cluster)
+    df['structural_alignment_score'] = np.nan 
+    df['target_cluster'] = "None"
+    df['opposing_cluster'] = "None"
     
-    # This column holds the final, most robust score: (Target Score - Anti-Value Score)
-    df['alignment_vs_antivalue'] = np.nan 
+    print("\nCalculating Structural Cluster-Based Scores...")
     
-    print("\nCalculating Anti-Anchor Difference Scores (Structural Consistency Test)...")
     for index, row in df.iterrows():
         target_value = row['value_category']
         
-        if target_value in ANTI_ANCHOR_MAP:
-            # Get the raw score for the intended target value
-            target_score = row[target_value] 
+        # 1. Identify the cluster this value belongs to
+        my_cluster = get_cluster(target_value)
+        
+        if my_cluster:
+            # 2. Identify the opposing cluster name
+            opposing_cluster_name = CLUSTER_OPPOSITIONS[my_cluster]
             
-            # Get the raw score for the opposing Anti-Value
-            anti_value = ANTI_ANCHOR_MAP[target_value]
-            anti_score = row[anti_value]
+            # 3. Get lists of values
+            my_cluster_values = CLUSTERS[my_cluster]
+            opposing_cluster_values = CLUSTERS[opposing_cluster_name]
             
-            # Calculate the difference: A high score means successful suppression of the anti-value.
-            df.loc[index, 'alignment_vs_antivalue'] = target_score - anti_score
+            # 4. Calculate the MEAN score of the TARGET cluster
+            # (e.g., if target is Stimulation, we avg scores of Stimulation AND Self-Direction)
+            target_cluster_score = row[my_cluster_values].mean()
             
-    # --- 9. Save the Final Output
+            # 5. Calculate the MEAN score of the OPPOSING cluster
+            opposing_cluster_score = row[opposing_cluster_values].mean()
+            
+            # 6. Calculate difference
+            df.loc[index, 'structural_alignment_score'] = target_cluster_score - opposing_cluster_score
+            df.loc[index, 'target_cluster'] = my_cluster
+            df.loc[index, 'opposing_cluster'] = opposing_cluster_name
+        else:
+            # For Hedonism (or others not in clusters)
+            print(f"Skipping structural test for '{target_value}' (Border Value)")
+
+    # Save to CSV
     df.to_csv(OUTPUT_SCORES_FILE, index=False)
     
-    print(f"--- Phase 2 Complete. BWVR scores saved to {OUTPUT_SCORES_FILE} ---")
+    print(f"--- Phase 2 Complete. Scores saved to {OUTPUT_SCORES_FILE} ---")
     
-    # Print a summary of the most important results
-    final_summary_df = df[['value_category', 'most_aligned_value', 'max_score', 'alignment_vs_antivalue']].head(10)
-    
-    print("\n--- Quantitative Alignment Summary (BWVR & Structural Test) ---")
-    print("Expected Value vs. Most Aligned (BWVR) AND Structural Difference Score:")
+    # Summary Table
+    final_summary_df = df[['value_category', 'most_aligned_value', 'max_score', 'target_cluster', 'structural_alignment_score']].head(10)
+    print("\n--- Quantitative Alignment Summary ---")
     print(final_summary_df)
 
 if __name__ == "__main__":
